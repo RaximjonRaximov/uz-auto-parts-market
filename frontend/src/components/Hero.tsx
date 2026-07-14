@@ -1,98 +1,92 @@
-import { Search, ArrowRight, ShieldCheck, Truck, BadgeCheck, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
-import { useInView } from '../hooks/useInView';
+import { Search, ShieldCheck, MapPin, TrendingUp, Sparkles } from 'lucide-react';
 import { HeroVisual } from './HeroVisual';
 
-export function Hero({ onSearch }: { onSearch?: (q: string) => void }) {
-  const [ref, visible] = useInView<HTMLDivElement>();
-  const [query, setQuery] = useState('');
+const POPULAR = ['Tormoz diski', 'Akumulyator', 'Mator moyi', 'Gofra', 'Svecha', 'Amortizator'];
 
-  const handleSubmit = (e: React.FormEvent) => {
+export function Hero({ onSearch }: { onSearch?: (q: string) => void }) {
+  const [q, setQ] = useState('');
+
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (onSearch) onSearch(query.trim());
-    const el = document.getElementById('listings');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    if (onSearch && q.trim()) {
+      onSearch(q.trim());
+      document.getElementById('listings')?.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
-  const chips = ["Tormoz diski", "Akumulyator", "Mator moy", "Gofra", "Svecha"];
-
   return (
-    <section ref={ref} className="relative min-h-[540px] grid lg:grid-cols-2 gap-12 items-center py-12 lg:py-16">
-      <div className={`space-y-8 ${visible ? '' : 'reveal'} ${visible ? 'visible' : ''}`}>
-        <div className="inline-flex items-center gap-2 pill pill-category">
-          <BadgeCheck size={14} />
-          O'zbekiston bo'ylab tekshirilgan sotuvchilar
+    <section id="top" className="relative pt-12 pb-20 lg:pt-20 lg:pb-28 overflow-hidden">
+      <div className="container-main">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+          <div className="space-y-8 max-w-2xl">
+            <div className="inline-flex items-center gap-2 rounded-full bg-[var(--primary-50)] border border-[var(--primary)]/10 px-4 py-1.5 text-sm font-extrabold text-[var(--primary)] animate-[pulse-glow_3s_infinite]">
+              <Sparkles size={16} /> O'zbekiston bo'ylab tekshirilgan sotuvchilar
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-balance leading-[1.1]">
+              Avto ehtiyot qismlarini{' '}
+              <span className="text-gradient">toping va soting</span>
+            </h1>
+
+            <p className="text-lg sm:text-xl text-[var(--foreground)]/70 font-medium leading-relaxed max-w-xl">
+              Brend, model, yil va hudud bo'yicha qidiring. Narxlar, top shahlar va kategoriyalar statistikasi — barchasi tez, zamonaviy va AI-siz.
+            </p>
+
+            <form onSubmit={submit} className="relative max-w-xl">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--primary)]">
+                <Search size={22} />
+              </div>
+              <input
+                type="text"
+                className="form-input pl-12 pr-32 py-4 text-base shadow-xl"
+                placeholder="Masalan: tormoz diski Chevrolet Nexia"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                aria-label="Zapchast qidiruv"
+              />
+              <button
+                type="submit"
+                className="absolute right-2 top-2 bottom-2 btn-primary px-6 rounded-xl"
+              >
+                Qidirish
+              </button>
+            </form>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-bold text-[var(--foreground)]/50">Mashhur:</span>
+              {POPULAR.map((term) => (
+                <button
+                  key={term}
+                  onClick={() => {
+                    if (onSearch) onSearch(term);
+                    document.getElementById('listings')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="pill bg-[var(--muted)] text-[var(--foreground)]/80 hover:bg-[var(--primary-50)] hover:text-[var(--primary)] transition-colors"
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-5 pt-2">
+              {[
+                { icon: ShieldCheck, text: 'Xavfsiy aloqa' },
+                { icon: MapPin, text: 'Butun O\'zbekiston' },
+                { icon: TrendingUp, text: 'Real narxlar' },
+              ].map((b) => (
+                <div key={b.text} className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]/70">
+                  <div className="w-8 h-8 rounded-lg bg-[var(--primary-50)] text-[var(--primary)] flex items-center justify-center">
+                    <b.icon size={16} />
+                  </div>
+                  {b.text}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <HeroVisual />
         </div>
-
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-balance leading-[1.05]">
-          Avto <span className="text-gradient">ehtiyot qismlarini</span> toping va soting
-        </h1>
-
-        <p className="text-lg text-[var(--foreground)]/70 max-w-xl leading-relaxed">
-          Brend, model, yil va hudud bo'yicha qidiring. Narxlar, top shahlar va kategoriyalar statistikasi — barchasi tez, zamonaviy va AI-siz.
-        </p>
-
-        <form onSubmit={handleSubmit} className="relative max-w-xl">
-          <div className="glass-card p-2 flex items-center gap-2 shadow-lg">
-            <div className="pl-3 text-[var(--primary)]">
-              <Search size={22} />
-            </div>
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Masalan: tormoz diski Chevrolet Nexia"
-              className="flex-1 bg-transparent outline-none text-[var(--foreground)] placeholder:text-[var(--foreground)]/40 py-3 px-2"
-              aria-label="Zapchast qidiruv"
-            />
-            <button type="submit" className="btn-primary py-3 px-6 whitespace-nowrap">
-              Qidirish <ArrowRight size={18} />
-            </button>
-          </div>
-        </form>
-
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-[var(--foreground)]/60 font-semibold">Mashhur:</span>
-          {chips.map((c) => (
-            <button
-              key={c}
-              onClick={() => {
-                setQuery(c);
-                if (onSearch) onSearch(c);
-                const el = document.getElementById('listings');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="px-3 py-1.5 rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] font-bold hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap gap-6 pt-2">
-          <div className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]/70">
-            <div className="w-8 h-8 rounded-full bg-[var(--accent)]/10 flex items-center justify-center text-[var(--accent)]">
-              <ShieldCheck size={16} />
-            </div>
-            Xavfsiy aloqa
-          </div>
-          <div className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]/70">
-            <div className="w-8 h-8 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)]">
-              <Truck size={16} />
-            </div>
-            Butun O'zbekiston
-          </div>
-          <div className="flex items-center gap-2 text-sm font-bold text-[var(--foreground)]/70">
-            <div className="w-8 h-8 rounded-full bg-[var(--warning)]/10 flex items-center justify-center text-[var(--warning)]">
-              <TrendingUp size={16} />
-            </div>
-            Real narxlar
-          </div>
-        </div>
-      </div>
-
-      <div className={`hidden lg:block ${visible ? '' : 'reveal'} ${visible ? 'visible' : ''}`}>
-        <HeroVisual />
       </div>
     </section>
   );

@@ -33,11 +33,11 @@ export function FilterPanel({
   const update = (key: keyof Filters, value: string) => onChange({ ...filters, [key]: value });
 
   return (
-    <div className="card p-5 space-y-4">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-        <div className="flex items-center gap-2 text-[var(--foreground)]">
-          <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)]">
-            <Filter size={20} />
+    <div className="card p-6 space-y-5">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-5">
+        <div className="flex items-center gap-3 text-[var(--foreground)]">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--primary-50)] flex items-center justify-center text-[var(--primary)]">
+            <Filter size={22} />
           </div>
           <div>
             <h3 className="font-bold text-lg">Filtrlash</h3>
@@ -47,9 +47,9 @@ export function FilterPanel({
 
         <div className="flex-1 flex items-center gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--primary)]" size={18} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--primary)]" size={18} />
             <input
-              className="form-input pl-10"
+              className="form-input pl-11"
               placeholder="Qidiruv..."
               value={filters.q}
               onChange={(e) => update('q', e.target.value)}

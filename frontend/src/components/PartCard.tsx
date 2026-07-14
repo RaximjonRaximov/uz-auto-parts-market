@@ -1,8 +1,13 @@
+import { useRef } from 'react';
 import { Wrench, MapPin, Phone, Calendar, ArrowUpRight } from 'lucide-react';
+import { useSpotlight } from '../hooks/useSpotlight';
 import { formatPriceUZS, conditionLabel } from '../lib/utils';
 import type { Part } from '../types';
 
 export function PartCard({ item }: { item: Part }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const spot = useSpotlight(cardRef);
+
   const conditionClass =
     item.condition === 'new'
       ? 'pill-new'
@@ -11,14 +16,14 @@ export function PartCard({ item }: { item: Part }) {
       : 'pill-used';
 
   return (
-    <article className="card overflow-hidden flex flex-col group cursor-pointer">
+    <article ref={cardRef} {...spot} className="spotlight card overflow-hidden flex flex-col group cursor-pointer">
       <div className="h-48 bg-[var(--muted)] relative overflow-hidden">
         {item.image_url ? (
           <img
             src={item.image_url}
             alt={item.title}
             loading="lazy"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[var(--foreground)]/20">
@@ -28,11 +33,11 @@ export function PartCard({ item }: { item: Part }) {
         <div className="absolute top-3 left-3">
           <span className={`pill ${conditionClass}`}>{conditionLabel(item.condition)}</span>
         </div>
-        <div className="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/90 flex items-center justify-center text-[var(--primary)] opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center text-[var(--primary)] opacity-0 group-hover:opacity-100 transition-all group-hover:scale-110">
           <ArrowUpRight size={18} />
         </div>
       </div>
-      <div className="p-5 flex flex-col gap-3 flex-1">
+      <div className="p-5 flex flex-col gap-3 flex-1 relative z-10">
         <h4 className="font-bold text-[var(--foreground)] line-clamp-2 leading-snug group-hover:text-[var(--primary)] transition-colors">
           {item.title}
         </h4>
@@ -42,7 +47,7 @@ export function PartCard({ item }: { item: Part }) {
           <span className="truncate">{[item.region, item.city].filter(Boolean).join(', ') || "Aniqlanmagan"}</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="px-2.5 py-1 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] text-xs font-extrabold">{item.brand}</span>
+          <span className="px-2.5 py-1 rounded-lg bg-[var(--primary-50)] text-[var(--primary)] text-xs font-extrabold">{item.brand}</span>
           <span className="px-2.5 py-1 rounded-lg bg-[var(--muted)] text-[var(--foreground)]/80 text-xs font-extrabold">{item.model}</span>
           {item.year && (
             <span className="px-2.5 py-1 rounded-lg bg-[var(--muted)] text-[var(--foreground)]/80 text-xs font-extrabold flex items-center gap-1">

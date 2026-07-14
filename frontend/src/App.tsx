@@ -27,12 +27,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen relative">
-      <div className="geo-bg" />
-      <div className="grid-pattern" />
+      <div className="aurora-bg">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+      </div>
+      <div className="noise" />
 
       <Header />
 
-      <main id="top" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main id="top" className="container-main relative z-10">
         <Hero onSearch={setHeroQuery} />
         <CategoriesSection onSelect={(cat) => { setHeroQuery(cat); }} />
         <StatsSection

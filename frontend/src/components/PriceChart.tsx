@@ -11,7 +11,7 @@ export function PriceChart({ buckets }: { buckets: PriceBucket[] }) {
 
   return (
     <div ref={ref} className="card p-6 h-96 flex flex-col">
-      <div className="flex items-center gap-2 mb-4 text-[var(--foreground)]">
+      <div className="flex items-center gap-2 mb-5 text-[var(--foreground)]">
         <BarChart3 size={22} className="text-[var(--primary)]" />
         <h3 className="font-bold text-lg">Narx taqsimoti</h3>
       </div>
@@ -20,7 +20,7 @@ export function PriceChart({ buckets }: { buckets: PriceBucket[] }) {
           <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group relative">
             <div className="text-xs font-black text-[var(--foreground)]/60 h-5">{b.count}</div>
             <div
-              className="bar w-full"
+              className="bar w-full rounded-t-xl"
               style={{
                 height: visible ? `${(b.count / max) * 100}%` : '0%',
                 transitionDelay: `${i * 80}ms`,
@@ -30,7 +30,7 @@ export function PriceChart({ buckets }: { buckets: PriceBucket[] }) {
               role="img"
               aria-label={`${formatPriceShort(b.min)} - ${formatPriceShort(b.max)}: ${b.count} ta e'lon`}
             />
-            <div className="text-[10px] font-bold text-[var(--foreground)]/60 text-center leading-tight whitespace-nowrap">
+            <div className="text-[10px] font-bold text-[var(--foreground)]/50 text-center leading-tight whitespace-nowrap">
               {b.min === 0 ? '0' : formatPriceShort(b.min)}
             </div>
             {hover === i && (

@@ -79,12 +79,12 @@ export function ListingsSection({ heroQuery }: { heroQuery?: string }) {
   };
 
   return (
-    <section id="listings" ref={ref} className={`section space-y-8 ${visible ? '' : 'reveal'} ${visible ? 'visible' : ''}`}>
-      <div className="text-center max-w-2xl mx-auto space-y-3">
-        <h2 className="text-3xl sm:text-4xl font-black text-[var(--foreground)]">
+    <section id="listings" ref={ref} className={`section space-y-10 ${visible ? '' : 'reveal'} ${visible ? 'visible' : ''}`}>
+      <div className="text-center max-w-2xl mx-auto space-y-4">
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[var(--foreground)]">
           <span className="text-gradient">Top</span> e'lonlar
         </h2>
-        <p className="text-[var(--foreground)]/70 text-lg">
+        <p className="text-lg text-[var(--foreground)]/70 font-medium">
           Sizga mos zapchastlarni filtrlardan foydalanib toping.
         </p>
       </div>
@@ -111,18 +111,18 @@ export function ListingsSection({ heroQuery }: { heroQuery?: string }) {
       </div>
 
       {!loading && parts.length === 0 && (
-        <div className="text-center py-20 text-[var(--foreground)]/60">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[var(--muted)] flex items-center justify-center">
-            <Wrench size={40} className="text-[var(--foreground)]/30" />
+        <div className="text-center py-24 text-[var(--foreground)]/60">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-[var(--muted)] flex items-center justify-center">
+            <Wrench size={48} className="text-[var(--foreground)]/30" />
           </div>
-          <p className="text-xl font-black text-[var(--foreground)]">Hech narsa topilmadi</p>
-          <p className="font-semibold">Filtrlarni o'zgartirib qayta urinib ko'ring.</p>
+          <p className="text-2xl font-black text-[var(--foreground)]">Hech narsa topilmadi</p>
+          <p className="font-semibold mt-2">Filtrlarni o'zgartirib qayta urinib ko'ring.</p>
         </div>
       )}
 
       {hasMore && parts.length > 0 && (
-        <div className="flex justify-center pt-8">
-          <button onClick={loadMore} disabled={loading} className="btn-primary">
+        <div className="flex justify-center pt-10">
+          <button onClick={loadMore} disabled={loading} className="btn-primary shine">
             {loading ? 'Yuklanmoqda...' : "Yana ko'rsatish"} <ChevronDown size={18} />
           </button>
         </div>

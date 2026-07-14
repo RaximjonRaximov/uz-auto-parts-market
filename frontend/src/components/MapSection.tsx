@@ -11,12 +11,12 @@ export function MapSection({ cities }: { cities: CityStat[] }) {
   const [ref, visible] = useInView<HTMLDivElement>();
 
   return (
-    <section id="map" ref={ref} className={`section space-y-6 ${visible ? '' : 'reveal'} ${visible ? 'visible' : ''}`}>
-      <div className="text-center max-w-2xl mx-auto space-y-3">
-        <h2 className="text-3xl sm:text-4xl font-black text-[var(--foreground)]">
+    <section id="map" ref={ref} className={`section space-y-8 ${visible ? '' : 'reveal'} ${visible ? 'visible' : ''}`}>
+      <div className="text-center max-w-2xl mx-auto space-y-4">
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[var(--foreground)]">
           <span className="text-gradient">Xaritada</span> ko'ring
         </h2>
-        <p className="text-[var(--foreground)]/70 text-lg">
+        <p className="text-lg text-[var(--foreground)]/70 font-medium">
           Shaharlar bo'yicha e'lonlar soni va o'rtacha narxlar.
         </p>
       </div>
@@ -41,7 +41,7 @@ export function MapSection({ cities }: { cities: CityStat[] }) {
                     key={c.city}
                     center={[lat, lon] as LatLngExpression}
                     radius={Math.max(6, Math.min(18, c.count / 3))}
-                    fillColor="#7C3AED"
+                    fillColor="#4f46e5"
                     color="#fff"
                     weight={2}
                     fillOpacity={0.85}

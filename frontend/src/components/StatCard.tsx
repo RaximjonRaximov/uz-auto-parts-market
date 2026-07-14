@@ -1,56 +1,36 @@
+import type { ReactNode } from 'react';
 import { useRef } from 'react';
-import { useTilt } from '../hooks/useTilt';
 import { useSpotlight } from '../hooks/useSpotlight';
-import { useCountUp } from '../hooks/useCountUp';
 
 export function StatCard({
-  label,
+  icon,
   value,
-  suffix,
-  icon: Icon,
-  suffixLabel,
-  accent = 'primary',
+  label,
+  accent = false,
 }: {
+  icon: ReactNode;
+  value: string;
   label: string;
-  value: number;
-  suffix?: string;
-  icon: React.ElementType;
-  suffixLabel?: string;
-  accent?: 'primary' | 'accent' | 'warning';
+  accent?: boolean;
 }) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const tilt = useTilt(cardRef);
-  const spot = useSpotlight(cardRef);
-  const count = useCountUp(value);
-
-  const colorClass =
-    accent === 'accent'
-      ? 'text-[var(--accent)] bg-[var(--accent)]/10'
-      : accent === 'warning'
-      ? 'text-[var(--warning)] bg-[var(--warning)]/10'
-      : 'text-[var(--primary)] bg-[var(--primary)]/10';
+  const ref = useRef<HTMLDivElement>(null);
+  const spot = useSpotlight(ref);
 
   return (
     <div
-      ref={cardRef}
-      className="card p-5 flex flex-col gap-3 relative overflow-hidden"
-      {...tilt}
+      ref={ref}
       {...spot}
+      className={`spotlight card p-6 flex flex-col gap-3 ${accent ? 'card-gradient' : ''}`}
     >
-      <div className="flex items-center justify-between">
-        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${colorClass}`}>
-          <Icon size={20} />
-        </div>
-        {suffixLabel && (
-          <div className="text-xs font-extrabold text-[var(--foreground)]/50">{suffixLabel}</div>
-        )}
+      <div
+        className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+          accent ? 'bg-white/20 text-white' : 'bg-[var(--primary-50)] text-[var(--primary)]'
+        }`}
+      >
+        {icon}
       </div>
-      <div>
-        <div className="text-3xl font-black text-[var(--foreground)] leading-none">
-          {new Intl.NumberFormat('ru-RU').format(count)}{suffix}
-        </div>
-        <div className="mt-1 text-sm font-bold text-[var(--foreground)]/60 uppercase tracking-wide">{label}</div>
-      </div>
+      <div className={`text-4xl font-black ${accent ? 'text-white' : 'text-[var(--foreground)]'}`}>{value}</div>
+      <div className={`text-sm font-bold ${accent ? 'text-white/80' : 'text-[var(--foreground)]/60'}`}>{label}</div>
     </div>
   );
 }
