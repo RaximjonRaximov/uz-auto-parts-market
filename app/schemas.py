@@ -173,3 +173,12 @@ class ServiceCenterResponse(BaseModel):
     brands: Optional[str]
     rating: float
     model_config = ConfigDict(from_attributes=True)
+
+
+class VinDecodeResponse(BaseModel):
+    vin: str
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    year: Optional[int] = None
+    engine: Optional[str] = None
+    message: Optional[str] = None

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { ChevronDown, RefreshCw, Wrench } from 'lucide-react';
 import { FilterPanel } from './FilterPanel';
 import { PartCard } from './PartCard';
+import { VinSearch } from './VinSearch';
 import { api } from '../lib/api';
 import { useInView } from '../hooks/useInView';
 import type { Part, Filters } from '../types';
@@ -27,6 +28,7 @@ export function ListingsSection({ heroQuery }: { heroQuery?: string }) {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [brands, setBrands] = useState<string[]>([]);
+  const [models, setModels] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
   const [ref, visible] = useInView<HTMLDivElement>();
@@ -36,6 +38,14 @@ export function ListingsSection({ heroQuery }: { heroQuery?: string }) {
     api.get('/categories').then((r) => setCategories(r.data.map((c: any) => c.name)));
     api.get('/regions').then((r) => setRegions(r.data.map((x: any) => x.name)));
   }, []);
+
+  useEffect(() => {
+    if (!filters.brand) {
+      setModels([]);
+      return;
+    }
+    api.get('/models', { params: { brand: filters.brand } }).then((r) => setModels(r.data.map((m: any) => m.name)));
+  }, [filters.brand]);
 
   useEffect(() => {
     if (heroQuery !== undefined) {
@@ -89,10 +99,16 @@ export function ListingsSection({ heroQuery }: { heroQuery?: string }) {
         </p>
       </div>
 
+      <VinSearch
+        onFound={(brand, model, year) =>
+          setFilters((prev) => ({ ...prev, brand, model, min_year: year, max_year: year }))
+        }
+      />
       <FilterPanel
         filters={filters}
         onChange={setFilters}
         brands={brands}
+        models={models}
         categories={categories}
         regions={regions}
       />

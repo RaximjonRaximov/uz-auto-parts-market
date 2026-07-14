@@ -20,12 +20,14 @@ export function FilterPanel({
   filters,
   onChange,
   brands,
+  models,
   categories,
   regions,
 }: {
   filters: Filters;
   onChange: (f: Filters) => void;
   brands: string[];
+  models: string[];
   categories: string[];
   regions: string[];
 }) {
@@ -68,18 +70,27 @@ export function FilterPanel({
       </div>
 
       <div className={`grid gap-4 ${expanded ? '' : 'hidden lg:grid'} grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5`}>
-        <select className="form-input form-select" value={filters.brand} onChange={(e) => update('brand', e.target.value)}>
+        <select
+          className="form-input form-select"
+          value={filters.brand}
+          onChange={(e) => onChange({ ...filters, brand: e.target.value, model: '' })}
+        >
           <option value="">Barcha brendlar</option>
           {brands.map((b) => (
             <option key={b} value={b}>{b}</option>
           ))}
         </select>
-        <input
-          className="form-input"
-          placeholder="Model"
+        <select
+          className="form-input form-select"
           value={filters.model}
           onChange={(e) => update('model', e.target.value)}
-        />
+          disabled={!filters.brand || models.length === 0}
+        >
+          <option value="">{filters.brand ? 'Barcha modellar' : 'Avval brendni tanlang'}</option>
+          {models.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
         <select className="form-input form-select" value={filters.category} onChange={(e) => update('category', e.target.value)}>
           <option value="">Barcha kategoriyalar</option>
           {categories.map((c) => (

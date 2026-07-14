@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import random
+import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -26,6 +28,7 @@ from app.schemas import (
     SellerResponse,
     ServiceCenterResponse,
     StatsSummary,
+    VinDecodeResponse,
 )
 
 api_router = APIRouter(prefix=settings.api_prefix)
@@ -95,6 +98,56 @@ def get_part(part_id: int, db: Session = Depends(get_db)):
     return part
 
 
+@api_router.get("/vin/{vin}", response_model=VinDecodeResponse)
+async def decode_vin(vin: str, db: Session = Depends(get_db)):
+    vin = vin.strip().upper()
+    if len(vin) != 17:
+        raise HTTPException(status_code=400, detail="VIN 17 belgidan iborat bo'lishi kerak")
+    # Basic sanitization
+    if not re.fullmatch(r"[A-HJ-NPR-Z0-9]{17}", vin):
+        raise HTTPException(status_code=400, detail="VIN noto'g'ri formatda")
+
+    # Try NHTSA decode first
+    brand = model = year = engine = None
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/{vin}?format=json"
+            r = await client.get(url)
+            if r.status_code == 200:
+                data = r.json()
+                results = data.get("Results", [])
+                if results:
+                    res = results[0]
+                    brand = res.get("Make")
+                    model = res.get("Model")
+                    year_raw = res.get("ModelYear")
+                    engine = res.get("EngineModel") or res.get("DisplacementL") or res.get("EngineConfiguration")
+                    if year_raw:
+                        try:
+                            year = int(year_raw)
+                        except ValueError:
+                            year = None
+    except Exception:
+        pass
+
+    # Fallback: try matching brand from our database by substring
+    if not brand:
+        all_brands = [b.name for b in db.query(Brand).all()]
+        for b in all_brands:
+            if b.upper() in vin:
+                brand = b
+                break
+
+    return VinDecodeResponse(
+        vin=vin,
+        brand=brand,
+        model=model,
+        year=year,
+        engine=engine,
+        message="NHTSA dan olingan ma'lumot" if brand else "Mahalliy bazadan taxminiy brend",
+    )
+
+
 @api_router.post("/parts", response_model=PartResponse, status_code=201)
 def create_part(part: PartCreate, db: Session = Depends(get_db)):
     data = part.model_dump()
@@ -126,6 +179,18 @@ def brands(db: Session = Depends(get_db)):
 @api_router.get("/brands/{brand_id}/models", response_model=List[ModelResponse])
 def brand_models(brand_id: int, db: Session = Depends(get_db)):
     return db.query(Model).filter(Model.brand_id == brand_id).order_by(Model.name).all()
+
+
+@api_router.get("/models", response_model=List[ModelResponse])
+def models(brand: Optional[str] = Query(None, max_length=100), db: Session = Depends(get_db)):
+    query = db.query(Model)
+    if brand:
+        brand_obj = db.query(Brand).filter(Brand.name.ilike(brand.strip())).first()
+        if brand_obj:
+            query = query.filter(Model.brand_id == brand_obj.id)
+        else:
+            return []
+    return query.order_by(Model.name).all()
 
 
 @api_router.get("/regions")
