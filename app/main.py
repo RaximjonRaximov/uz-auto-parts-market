@@ -1,20 +1,23 @@
-"""Uzbekistan Auto Parts Marketplace — FastAPI backend."""
+"""Uzbekistan Auto Parts Marketplace — FastAPI backend (hardened)."""
 from __future__ import annotations
 
-import json
-import os
 import random
+import re
+import time
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine, Column, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from starlette.middleware.base import BaseHTTPMiddleware
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -22,7 +25,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
     database_url: str = "sqlite:///./autoparts.db"
     api_prefix: str = "/api"
-    cors_origins: str = "http://localhost:5173,http://localhost:8000"
+    cors_origins: str = "http://localhost:5173,http://localhost:8000,http://localhost:9000"
+    trusted_hosts: str = "localhost,127.0.0.1,*.devinapps.com,*.loca.lt"
+    site_url: str = "https://uzautoparts.uz"
+    rate_limit: int = 120  # requests per window
+    rate_window: int = 60  # seconds
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -48,7 +55,7 @@ class Part(Base):
     model = Column(String, index=True, nullable=False)
     year = Column(Integer, index=True, nullable=True)
     category = Column(String, index=True, nullable=False)
-    condition = Column(String, index=True, nullable=False)  # new / used / remanufactured
+    condition = Column(String, index=True, nullable=False)
     price_uzs = Column(Float, nullable=False)
     price_usd = Column(Float, nullable=True)
     currency = Column(String, default="UZS")
@@ -64,26 +71,70 @@ class Part(Base):
 
 # --- Pydantic schemas ---
 
+def _sanitize(s: Optional[str], max_len: int = 200) -> Optional[str]:
+    if s is None:
+        return None
+    s = s.strip()
+    if len(s) > max_len:
+        s = s[:max_len]
+    return s
+
+
+def _clean_html(s: Optional[str]) -> Optional[str]:
+    if s is None:
+        return None
+    return re.sub(r"[<>\"']", "", s)
+
+
 class PartBase(BaseModel):
-    title: str
-    description: Optional[str] = None
-    brand: str
-    model: str
-    year: Optional[int] = None
-    category: str
-    condition: str = "used"
-    price_uzs: float
-    price_usd: Optional[float] = None
-    currency: str = "UZS"
-    region: Optional[str] = None
-    city: Optional[str] = None
-    seller_name: Optional[str] = None
-    seller_phone: Optional[str] = None
-    image_url: Optional[str] = None
+    title: str = Field(..., min_length=3, max_length=200)
+    description: Optional[str] = Field(None, max_length=2000)
+    brand: str = Field(..., min_length=1, max_length=100)
+    model: str = Field(..., min_length=1, max_length=100)
+    year: Optional[int] = Field(None, ge=1900, le=2100)
+    category: str = Field(..., min_length=1, max_length=100)
+    condition: str = Field(..., pattern=r"^(new|used|remanufactured)$")
+    price_uzs: float = Field(..., gt=0, le=1_000_000_000_000)
+    price_usd: Optional[float] = Field(None, gt=0, le=100_000_000_000)
+    currency: str = Field(default="UZS", max_length=10)
+    region: Optional[str] = Field(None, max_length=100)
+    city: Optional[str] = Field(None, max_length=100)
+    seller_name: Optional[str] = Field(None, max_length=150)
+    seller_phone: Optional[str] = Field(None, max_length=50)
+    image_url: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("title", "brand", "model", "category", "region", "city", "seller_name", mode="before")
+    @classmethod
+    def strip_strings(cls, v: Optional[str]) -> Optional[str]:
+        return _sanitize(v, 500) if isinstance(v, str) else v
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def clean_description(cls, v: Optional[str]) -> Optional[str]:
+        return _clean_html(_sanitize(v, 2000))
+
+    @field_validator("seller_phone", mode="before")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        cleaned = re.sub(r"\s", "", v)
+        if not re.fullmatch(r"\+?\d{7,15}", cleaned):
+            raise ValueError("Telefon raqami noto'g'ri formatda")
+        return cleaned
+
+    @field_validator("image_url", mode="before")
+    @classmethod
+    def validate_image_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        if not re.match(r"^https?://", v, re.IGNORECASE):
+            raise ValueError("Rasm URLi faqat http yoki https bilan boshlanishi kerak")
+        return v
 
 
 class PartCreate(PartBase):
-    external_id: Optional[str] = None
+    external_id: Optional[str] = Field(None, max_length=100)
 
 
 class PartResponse(PartBase):
@@ -146,6 +197,52 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
+
+# --- Security middlewares ---
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(), payment=()"
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' https:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self';"
+        )
+        response.headers["Content-Security-Policy"] = csp
+        response.headers["X-Content-Security-Policy"] = csp
+        return response
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    _storage: Dict[str, List[float]] = {}
+
+    async def dispatch(self, request: Request, call_next):
+        client_ip = request.headers.get("x-forwarded-for", request.client.host or "unknown").split(",")[0].strip()
+        now = time.time()
+        window = self._storage.setdefault(client_ip, [])
+        cutoff = now - settings.rate_window
+        # Keep only requests inside the window
+        window[:] = [t for t in window if t > cutoff]
+
+        if len(window) >= settings.rate_limit:
+            raise HTTPException(status_code=429, detail="Too many requests. Please slow down.")
+
+        window.append(now)
+        return await call_next(request)
 
 
 # --- Sample data ---
@@ -283,6 +380,22 @@ def seed_sample_data() -> None:
         db.close()
 
 
+# --- Helpers ---
+
+def escape_like(s: str) -> str:
+    """Escape LIKE wildcards so users cannot inject broad SQL wildcards."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def sanitize_q(q: Optional[str]) -> Optional[str]:
+    if not q:
+        return None
+    q = q.strip()
+    if len(q) > 100:
+        q = q[:100]
+    return q
+
+
 # --- FastAPI app ---
 
 Base.metadata.create_all(bind=engine)
@@ -292,43 +405,95 @@ app = FastAPI(
     title="Uzbekistan Auto Parts Marketplace",
     version="0.1.0",
     description="Modern auto spare parts marketplace for Uzbekistan",
+    docs_url=None,
+    redoc_url=None,
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["X-Content-Type-Options"],
+    max_age=600,
 )
+
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=[h.strip() for h in settings.trusted_hosts.split(",") if h.strip()])
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "time": datetime.utcnow().isoformat()}
+
+
+@app.get("/robots.txt", response_class=Response)
+def robots_txt():
+    content = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /api/\n"
+        f"Sitemap: {settings.site_url}/sitemap.xml\n"
+    )
+    return Response(content=content, media_type="text/plain")
+
+
+@app.get("/sitemap.xml", response_class=Response)
+def sitemap(db: Session = Depends(get_db)):
+    root = ET.Element("urlset", {"xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"})
+
+    def add(loc: str, priority: str, changefreq: str = "daily"):
+        url = ET.SubElement(root, "url")
+        ET.SubElement(url, "loc").text = loc
+        ET.SubElement(url, "priority").text = priority
+        ET.SubElement(url, "changefreq").text = changefreq
+
+    add(settings.site_url, "1.0")
+    add(f"{settings.site_url}/#categories", "0.8")
+    add(f"{settings.site_url}/#listings", "0.9")
+    add(f"{settings.site_url}/#stats", "0.7")
+    add(f"{settings.site_url}/#map", "0.6")
+
+    parts = db.query(Part).filter(Part.is_active == 1).order_by(Part.id.desc()).limit(100).all()
+    for part in parts:
+        add(f"{settings.site_url}/#listings?part={part.id}", "0.6", "weekly")
+
+    categories = {c.category for c in db.query(Part.category).filter(Part.is_active == 1).distinct().all()}
+    for cat in categories:
+        add(f"{settings.site_url}/#listings?category={cat}", "0.7", "weekly")
+
+    xml = ET.tostring(root, encoding="unicode")
+    return Response(content=xml, media_type="application/xml")
 
 
 @app.get(f"{settings.api_prefix}/parts", response_model=List[PartResponse])
 def list_parts(
-    brand: Optional[str] = None,
-    model: Optional[str] = None,
-    category: Optional[str] = None,
-    condition: Optional[str] = None,
-    min_year: Optional[int] = None,
-    max_year: Optional[int] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
-    region: Optional[str] = None,
-    city: Optional[str] = None,
-    q: Optional[str] = None,
-    skip: int = 0,
-    limit: int = Query(50, ge=1, le=200),
+    brand: Optional[str] = Query(None, max_length=100),
+    model: Optional[str] = Query(None, max_length=100),
+    category: Optional[str] = Query(None, max_length=100),
+    condition: Optional[str] = Query(None, max_length=20),
+    min_year: Optional[int] = Query(None, ge=1900, le=2100),
+    max_year: Optional[int] = Query(None, ge=1900, le=2100),
+    min_price: Optional[float] = Query(None, ge=0),
+    max_price: Optional[float] = Query(None, ge=0),
+    region: Optional[str] = Query(None, max_length=100),
+    city: Optional[str] = Query(None, max_length=100),
+    q: Optional[str] = Query(None, max_length=100),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(24, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     query = db.query(Part).filter(Part.is_active == 1)
     if brand:
-        query = query.filter(Part.brand.ilike(brand))
+        query = query.filter(Part.brand.ilike(brand.strip()))
     if model:
-        query = query.filter(Part.model.ilike(model))
+        query = query.filter(Part.model.ilike(model.strip()))
     if category:
-        query = query.filter(Part.category.ilike(category))
+        query = query.filter(Part.category.ilike(category.strip()))
     if condition:
-        query = query.filter(Part.condition == condition)
+        query = query.filter(Part.condition == condition.strip())
     if min_year is not None:
         query = query.filter(Part.year >= min_year)
     if max_year is not None:
@@ -338,17 +503,19 @@ def list_parts(
     if max_price is not None:
         query = query.filter(Part.price_uzs <= max_price)
     if region:
-        query = query.filter(Part.region.ilike(region))
+        query = query.filter(Part.region.ilike(region.strip()))
     if city:
-        query = query.filter(Part.city.ilike(city))
+        query = query.filter(Part.city.ilike(city.strip()))
     if q:
-        pattern = f"%{q}%"
-        query = query.filter(
-            (Part.title.ilike(pattern))
-            | (Part.description.ilike(pattern))
-            | (Part.brand.ilike(pattern))
-            | (Part.model.ilike(pattern))
-        )
+        raw = sanitize_q(q)
+        if raw:
+            pattern = f"%{escape_like(raw)}%"
+            query = query.filter(
+                (Part.title.ilike(pattern, escape="\\"))
+                | (Part.description.ilike(pattern, escape="\\"))
+                | (Part.brand.ilike(pattern, escape="\\"))
+                | (Part.model.ilike(pattern, escape="\\"))
+            )
     return query.order_by(Part.created_at.desc()).offset(skip).limit(limit).all()
 
 
@@ -362,8 +529,9 @@ def get_part(part_id: int, db: Session = Depends(get_db)):
 
 @app.post(f"{settings.api_prefix}/parts", response_model=PartResponse, status_code=201)
 def create_part(part: PartCreate, db: Session = Depends(get_db)):
-    external_id = part.external_id or f"part-{random.randint(1_000_000, 9_999_999)}"
-    db_part = Part(**part.model_dump(), external_id=external_id)
+    db_part = Part(**part.model_dump())
+    if not db_part.external_id:
+        db_part.external_id = f"part-{random.randint(1_000_000, 9_999_999)}"
     db.add(db_part)
     db.commit()
     db.refresh(db_part)

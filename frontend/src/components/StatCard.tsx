@@ -9,35 +9,48 @@ export function StatCard({
   suffix,
   icon: Icon,
   suffixLabel,
+  accent = 'primary',
 }: {
   label: string;
   value: number;
   suffix?: string;
   icon: React.ElementType;
   suffixLabel?: string;
+  accent?: 'primary' | 'accent' | 'warning';
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const tilt = useTilt(cardRef);
   const spot = useSpotlight(cardRef);
   const count = useCountUp(value);
 
+  const colorClass =
+    accent === 'accent'
+      ? 'text-[var(--accent)] bg-[var(--accent)]/10'
+      : accent === 'warning'
+      ? 'text-[var(--warning)] bg-[var(--warning)]/10'
+      : 'text-[var(--primary)] bg-[var(--primary)]/10';
+
   return (
     <div
       ref={cardRef}
-      className="glass tilt-card spotlight rounded-2xl p-5 flex flex-col gap-2 relative"
+      className="card p-5 flex flex-col gap-3 relative overflow-hidden"
       {...tilt}
       {...spot}
     >
-      <div className="flex items-center gap-3 text-slate-500">
-        <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-400 to-violet-500 text-white">
-          <Icon size={18} />
+      <div className="flex items-center justify-between">
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${colorClass}`}>
+          <Icon size={20} />
         </div>
-        <span className="text-sm font-semibold uppercase tracking-wide">{label}</span>
+        {suffixLabel && (
+          <div className="text-xs font-extrabold text-[var(--foreground)]/50">{suffixLabel}</div>
+        )}
       </div>
-      <div className="text-3xl font-extrabold text-gradient leading-tight">
-        {new Intl.NumberFormat('ru-RU').format(count)}{suffix}
+      <div>
+        <div className="text-3xl font-black text-[var(--foreground)] leading-none">
+          {new Intl.NumberFormat('ru-RU').format(count)}{suffix}
+        </div>
+        <div className="mt-1 text-sm font-bold text-[var(--foreground)]/60 uppercase tracking-wide">{label}</div>
       </div>
-      {suffixLabel && <div className="text-xs text-slate-500 font-medium">{suffixLabel}</div>}
     </div>
   );
 }

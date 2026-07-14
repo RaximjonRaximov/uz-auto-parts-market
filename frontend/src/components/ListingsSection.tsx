@@ -3,6 +3,7 @@ import { ChevronDown, RefreshCw, Wrench } from 'lucide-react';
 import { FilterPanel } from './FilterPanel';
 import { PartCard } from './PartCard';
 import { api } from '../lib/api';
+import { useInView } from '../hooks/useInView';
 import type { Part, Filters } from '../types';
 
 const initialFilters: Filters = {
@@ -19,7 +20,7 @@ const initialFilters: Filters = {
   city: '',
 };
 
-export function ListingsSection() {
+export function ListingsSection({ heroQuery }: { heroQuery?: string }) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,12 +29,19 @@ export function ListingsSection() {
   const [brands, setBrands] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
+  const [ref, visible] = useInView<HTMLDivElement>();
 
   useEffect(() => {
     api.get('/brands').then((r) => setBrands(r.data.map((b: any) => b.name)));
     api.get('/categories').then((r) => setCategories(r.data.map((c: any) => c.name)));
     api.get('/regions').then((r) => setRegions(r.data.map((x: any) => x.name)));
   }, []);
+
+  useEffect(() => {
+    if (heroQuery !== undefined) {
+      setFilters((prev) => ({ ...prev, q: heroQuery }));
+    }
+  }, [heroQuery]);
 
   const fetchParts = useCallback(async (p = 0, append = false) => {
     setLoading(true);
@@ -71,7 +79,16 @@ export function ListingsSection() {
   };
 
   return (
-    <section id="listings" className="space-y-6">
+    <section id="listings" ref={ref} className={`section space-y-8 ${visible ? '' : 'reveal'} ${visible ? 'visible' : ''}`}>
+      <div className="text-center max-w-2xl mx-auto space-y-3">
+        <h2 className="text-3xl sm:text-4xl font-black text-[var(--foreground)]">
+          <span className="text-gradient">Top</span> e'lonlar
+        </h2>
+        <p className="text-[var(--foreground)]/70 text-lg">
+          Sizga mos zapchastlarni filtrlardan foydalanib toping.
+        </p>
+      </div>
+
       <FilterPanel
         filters={filters}
         onChange={setFilters}
@@ -81,29 +98,31 @@ export function ListingsSection() {
       />
 
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-black text-slate-800">
-          E'lonlar <span className="text-gradient">({parts.length})</span>
-        </h2>
-        {loading && <RefreshCw size={20} className="text-violet-500 animate-spin" />}
+        <h3 className="text-xl font-black text-[var(--foreground)]">
+          Natijalar <span className="text-[var(--primary)]">({parts.length})</span>
+        </h3>
+        {loading && <RefreshCw size={22} className="text-[var(--primary)] animate-spin" />}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 stagger">
         {parts.map((item) => (
           <PartCard key={item.id} item={item} />
         ))}
       </div>
 
       {!loading && parts.length === 0 && (
-        <div className="text-center py-20 text-slate-500">
-          <Wrench size={48} className="mx-auto mb-4 text-slate-300" />
-          <p className="text-lg font-semibold">Hech narsa topilmadi</p>
-          <p>Filtrlarni o'zgartirib qayta urinib ko'ring.</p>
+        <div className="text-center py-20 text-[var(--foreground)]/60">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[var(--muted)] flex items-center justify-center">
+            <Wrench size={40} className="text-[var(--foreground)]/30" />
+          </div>
+          <p className="text-xl font-black text-[var(--foreground)]">Hech narsa topilmadi</p>
+          <p className="font-semibold">Filtrlarni o'zgartirib qayta urinib ko'ring.</p>
         </div>
       )}
 
       {hasMore && parts.length > 0 && (
-        <div className="flex justify-center pt-6">
-          <button onClick={loadMore} disabled={loading} className="neo-btn">
+        <div className="flex justify-center pt-8">
+          <button onClick={loadMore} disabled={loading} className="btn-primary">
             {loading ? 'Yuklanmoqda...' : "Yana ko'rsatish"} <ChevronDown size={18} />
           </button>
         </div>
