@@ -1,15 +1,24 @@
 import { useEffect, useState } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
+import { Marquee } from './components/Marquee';
 import { CategoriesSection } from './components/CategoriesSection';
 import { StatsSection } from './components/StatsSection';
 import { ListingsSection } from './components/ListingsSection';
+import { GlobeSection } from './components/GlobeSection';
 import { MapSection } from './components/MapSection';
 import { TrustSection } from './components/TrustSection';
 import { CTASection } from './components/CTASection';
 import { Footer } from './components/Footer';
+import { CustomCursor } from './components/CustomCursor';
+import { ScrollProgress } from './components/ScrollProgress';
 import { api } from './lib/api';
 import type { StatsSummary, CityStat, CategoryStat, PriceBucket } from './types';
+
+const BRANDS = [
+  'Chevrolet', 'Kia', 'Hyundai', 'Toyota', 'BMW', 'Mercedes-Benz',
+  'Audi', 'Volkswagen', 'Haval', 'BYD', 'Lada', 'Daewoo',
+];
 
 export default function App() {
   const [stats, setStats] = useState<StatsSummary | null>(null);
@@ -27,6 +36,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen relative">
+      <CustomCursor />
+      <ScrollProgress />
+
       <div className="aurora-bg">
         <div className="orb orb-1" />
         <div className="orb orb-2" />
@@ -37,6 +49,7 @@ export default function App() {
 
       <main id="top" className="container-main relative z-10">
         <Hero onSearch={setHeroQuery} />
+        <Marquee items={BRANDS} />
         <CategoriesSection onSelect={(cat) => { setHeroQuery(cat); }} />
         <StatsSection
           stats={stats}
@@ -45,6 +58,7 @@ export default function App() {
           priceBuckets={priceBuckets}
         />
         <ListingsSection heroQuery={heroQuery} />
+        <GlobeSection cities={cityStats} />
         <MapSection cities={cityStats} />
         <TrustSection />
         <CTASection />

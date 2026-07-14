@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Wrench, Plus, Menu, X, Github } from 'lucide-react';
+import { MagneticButton } from './MagneticButton';
 
 export function Header() {
   const [open, setOpen] = useState(false);
@@ -54,13 +55,13 @@ export function Header() {
               href="https://github.com/RaximjonRaximov/uz-auto-parts-market"
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-secondary py-2.5 px-4"
+              className="btn-secondary py-2.5 px-4 cursor-hover"
             >
               <Github size={18} />
             </a>
-            <button className="btn-primary py-2.5 px-5 shine">
+            <MagneticButton className="btn-primary py-2.5 px-5 shine cursor-hover">
               <Plus size={18} /> E'lon qo'shish
-            </button>
+            </MagneticButton>
           </div>
 
           <button

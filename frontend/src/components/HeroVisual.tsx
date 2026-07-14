@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { Cog, ShieldCheck, MapPin, Banknote, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { useTilt } from '../hooks/useTilt';
 
-export function HeroVisual() {
+export function HeroVisual({ offset = 0 }: { offset?: number }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const tilt = useTilt(cardRef);
 
@@ -14,11 +14,14 @@ export function HeroVisual() {
   ];
 
   return (
-    <div className="relative h-full min-h-[460px] flex items-center justify-center" style={{ perspective: '1200px' }}>
+    <div
+      className="relative h-full min-h-[460px] flex items-center justify-center"
+      style={{ perspective: '1200px', transform: `translateY(${offset}px)` }}
+    >
       <div
         ref={cardRef}
         {...tilt}
-        className="relative w-full max-w-md rounded-[2rem] card-gradient p-7 shadow-2xl flex flex-col gap-6"
+        className="relative w-full max-w-md rounded-[2rem] card-gradient p-7 shadow-2xl flex flex-col gap-6 cursor-hover"
         style={{ transformStyle: 'preserve-3d' }}
       >
         <div className="flex items-center justify-between">
@@ -31,7 +34,7 @@ export function HeroVisual() {
               <div className="text-xs font-bold opacity-80">Bozor statistikasi</div>
             </div>
           </div>
-          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors cursor-pointer">
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
             <ArrowUpRight size={20} />
           </div>
         </div>

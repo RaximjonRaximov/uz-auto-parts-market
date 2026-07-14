@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { Search, ShieldCheck, MapPin, TrendingUp, Sparkles } from 'lucide-react';
 import { HeroVisual } from './HeroVisual';
+import { MagneticButton } from './MagneticButton';
+import { useParallax } from '../hooks/useParallax';
 
 const POPULAR = ['Tormoz diski', 'Akumulyator', 'Mator moyi', 'Gofra', 'Svecha', 'Amortizator'];
 
 export function Hero({ onSearch }: { onSearch?: (q: string) => void }) {
   const [q, setQ] = useState('');
+  const parallaxY = useParallax(0.15);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,9 +20,17 @@ export function Hero({ onSearch }: { onSearch?: (q: string) => void }) {
 
   return (
     <section id="top" className="relative pt-12 pb-20 lg:pt-20 lg:pb-28 overflow-hidden">
+      <div
+        className="absolute inset-0 pointer-events-none -z-10"
+        style={{ transform: `translateY(${parallaxY}px)` }}
+      >
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 rounded-full bg-[var(--primary)]/10 blur-[120px]" />
+        <div className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full bg-[var(--accent)]/10 blur-[100px]" />
+      </div>
+
       <div className="container-main">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          <div className="space-y-8 max-w-2xl">
+          <div className="space-y-8 max-w-2xl" style={{ transform: `translateY(${-parallaxY * 0.3}px)` }}>
             <div className="inline-flex items-center gap-2 rounded-full bg-[var(--primary-50)] border border-[var(--primary)]/10 px-4 py-1.5 text-sm font-extrabold text-[var(--primary)] animate-[pulse-glow_3s_infinite]">
               <Sparkles size={16} /> O'zbekiston bo'ylab tekshirilgan sotuvchilar
             </div>
@@ -47,7 +58,7 @@ export function Hero({ onSearch }: { onSearch?: (q: string) => void }) {
               />
               <button
                 type="submit"
-                className="absolute right-2 top-2 bottom-2 btn-primary px-6 rounded-xl"
+                className="absolute right-2 top-2 bottom-2 btn-primary px-6 rounded-xl cursor-hover"
               >
                 Qidirish
               </button>
@@ -56,16 +67,18 @@ export function Hero({ onSearch }: { onSearch?: (q: string) => void }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-bold text-[var(--foreground)]/50">Mashhur:</span>
               {POPULAR.map((term) => (
-                <button
+                <MagneticButton
                   key={term}
+                  as="button"
+                  type="button"
                   onClick={() => {
                     if (onSearch) onSearch(term);
                     document.getElementById('listings')?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="pill bg-[var(--muted)] text-[var(--foreground)]/80 hover:bg-[var(--primary-50)] hover:text-[var(--primary)] transition-colors"
+                  className="pill bg-[var(--muted)] text-[var(--foreground)]/80 hover:bg-[var(--primary-50)] hover:text-[var(--primary)] transition-colors cursor-hover"
                 >
                   {term}
-                </button>
+                </MagneticButton>
               ))}
             </div>
 
@@ -85,7 +98,7 @@ export function Hero({ onSearch }: { onSearch?: (q: string) => void }) {
             </div>
           </div>
 
-          <HeroVisual />
+          <HeroVisual offset={parallaxY * 0.4} />
         </div>
       </div>
     </section>

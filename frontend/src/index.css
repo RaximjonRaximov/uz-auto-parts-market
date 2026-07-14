@@ -43,6 +43,15 @@
     font-family: var(--font-body);
   }
 
+  @media (hover: hover) and (pointer: fine) {
+    body {
+      cursor: none;
+    }
+    a, button, input, select, textarea, [role="button"], .cursor-pointer {
+      cursor: none;
+    }
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
     letter-spacing: -0.02em;
@@ -371,6 +380,20 @@
   .link-underline:hover::after {
     width: 100%;
   }
+
+  .marquee {
+    @apply relative flex overflow-hidden;
+  }
+
+  .marquee-content {
+    @apply flex shrink-0 gap-8;
+    animation: marquee 30s linear infinite;
+  }
+
+  .scroll-progress {
+    @apply fixed top-0 left-0 h-1 z-[100] bg-gradient-to-r from-[var(--primary)] via-[var(--accent)] to-[var(--secondary)];
+    transform-origin: left;
+  }
 }
 
 @layer utilities {
@@ -411,6 +434,11 @@
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.25); }
   50% { box-shadow: 0 0 0 12px rgba(79, 70, 229, 0); }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
