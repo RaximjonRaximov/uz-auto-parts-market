@@ -51,6 +51,41 @@ export interface PriceBucket {
   count: number;
 }
 
+export interface Seller {
+  id: number;
+  name: string;
+  type: 'shop' | 'individual' | 'service';
+  phone?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  city?: string;
+  region?: string;
+  lat?: number;
+  lng?: number;
+  logo_url?: string;
+  rating: number;
+  verified: number;
+  work_hours?: string;
+  brands?: string;
+  services?: string;
+}
+
+export interface ServiceCenter {
+  id: number;
+  name: string;
+  services?: string;
+  address?: string;
+  city?: string;
+  region?: string;
+  lat?: number;
+  lng?: number;
+  phone?: string;
+  work_hours?: string;
+  brands?: string;
+  rating: number;
+}
+
 export interface Filters {
   q: string;
   brand: string;

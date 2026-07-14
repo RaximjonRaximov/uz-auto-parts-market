@@ -7,6 +7,8 @@ import { StatsSection } from './components/StatsSection';
 import { ListingsSection } from './components/ListingsSection';
 import { GlobeSection } from './components/GlobeSection';
 import { MapSection } from './components/MapSection';
+import { SellersSection } from './components/SellersSection';
+import { ServiceCentersSection } from './components/ServiceCentersSection';
 import { TrustSection } from './components/TrustSection';
 import { CTASection } from './components/CTASection';
 import { Footer } from './components/Footer';
@@ -60,6 +62,8 @@ export default function App() {
         <ListingsSection heroQuery={heroQuery} />
         <GlobeSection cities={cityStats} />
         <MapSection cities={cityStats} />
+        <SellersSection />
+        <ServiceCentersSection />
         <TrustSection />
         <CTASection />
       </main>
