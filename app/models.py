@@ -133,3 +133,86 @@ class Part(Base, TimestampMixin):
 
     brand_obj = relationship("Brand")
     model_obj = relationship("Model")
+    order_items = relationship("OrderItem", back_populates="part", lazy="dynamic")
+
+
+class User(Base, TimestampMixin):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(150), nullable=False, unique=True, index=True)
+    phone = Column(String(50), nullable=True, unique=True, index=True)
+    full_name = Column(String(150), nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False, default="buyer")  # buyer | seller | admin
+    is_active = Column(Integer, default=1)
+    avatar_url = Column(String(500), nullable=True)
+    city = Column(String(100), nullable=True)
+    bio = Column(Text, nullable=True)
+
+    orders = relationship("Order", back_populates="buyer", lazy="dynamic")
+    messages_sent = relationship("Message", foreign_keys="Message.sender_id", back_populates="sender", lazy="dynamic")
+    payments = relationship("Payment", back_populates="user", lazy="dynamic")
+
+
+class Order(Base, TimestampMixin):
+    __tablename__ = "orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    buyer_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    seller_id = Column(Integer, ForeignKey("sellers.id"), nullable=True, index=True)
+    status = Column(String(30), nullable=False, default="pending")  # pending | confirmed | shipped | delivered | cancelled
+    total_uzs = Column(Float, nullable=False, default=0.0)
+    delivery_address = Column(String(500), nullable=True)
+    notes = Column(Text, nullable=True)
+
+    buyer = relationship("User", back_populates="orders")
+    seller = relationship("Seller")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    messages = relationship("Message", back_populates="order", lazy="dynamic")
+    payments = relationship("Payment", back_populates="order", lazy="dynamic")
+
+
+class OrderItem(Base, TimestampMixin):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    part_id = Column(Integer, ForeignKey("parts.id"), nullable=False, index=True)
+    quantity = Column(Integer, nullable=False, default=1)
+    unit_price_uzs = Column(Float, nullable=False)
+    status = Column(String(30), nullable=False, default="pending")  # pending | ready | shipped
+
+    order = relationship("Order", back_populates="items")
+    part = relationship("Part", back_populates="order_items")
+
+
+class Message(Base, TimestampMixin):
+    __tablename__ = "messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    recipient_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    body = Column(Text, nullable=False)
+    is_read = Column(Integer, default=0)
+
+    order = relationship("Order", back_populates="messages")
+    sender = relationship("User", foreign_keys=[sender_id])
+    recipient = relationship("User", foreign_keys=[recipient_id])
+
+
+class Payment(Base, TimestampMixin):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    provider = Column(String(30), nullable=False)  # payme | click | uzum | cash_on_delivery
+    amount_uzs = Column(Float, nullable=False)
+    status = Column(String(30), nullable=False, default="pending")  # pending | paid | failed | refunded
+    provider_transaction_id = Column(String(255), nullable=True)
+    payment_url = Column(String(800), nullable=True)
+
+    order = relationship("Order", back_populates="payments")
+    user = relationship("User", back_populates="payments")

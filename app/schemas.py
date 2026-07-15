@@ -1,8 +1,9 @@
 """Pydantic request/response schemas."""
 from __future__ import annotations
 
+import re
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -182,3 +183,138 @@ class VinDecodeResponse(BaseModel):
     year: Optional[int] = None
     engine: Optional[str] = None
     message: Optional[str] = None
+
+
+class UserRegister(BaseModel):
+    email: str = Field(..., min_length=5, max_length=150)
+    password: str = Field(..., min_length=6, max_length=128)
+    full_name: str = Field(..., min_length=2, max_length=150)
+    phone: Optional[str] = Field(None, max_length=50)
+    role: str = Field(default="buyer", pattern=r"^(buyer|seller|admin)$")
+    city: Optional[str] = Field(None, max_length=100)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        v = _sanitize(v, 150)
+        if not v or "@" not in v:
+            raise ValueError("Email manzili noto'g'ri")
+        return v.lower()
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def validate_phone(cls, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        cleaned = re.sub(r"\s", "", v)
+        if not re.fullmatch(r"\+?\d{7,15}", cleaned):
+            raise ValueError("Telefon raqami noto'g'ri formatda")
+        return cleaned
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    full_name: str
+    phone: Optional[str]
+    role: str
+    city: Optional[str]
+    avatar_url: Optional[str]
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserResponse
+
+
+class OrderItemCreate(BaseModel):
+    part_id: int = Field(..., ge=1)
+    quantity: int = Field(default=1, ge=1, le=99)
+
+
+class OrderCreate(BaseModel):
+    items: List["OrderItemCreate"] = Field(..., min_length=1, max_length=50)
+    delivery_address: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=1000)
+    seller_id: Optional[int] = None
+
+    @field_validator("delivery_address", "notes", mode="before")
+    @classmethod
+    def clean_text(cls, v: Optional[str]) -> Optional[str]:
+        return _clean_html(_sanitize(v, 1000))
+
+
+class OrderItemResponse(BaseModel):
+    id: int
+    part_id: int
+    quantity: int
+    unit_price_uzs: float
+    status: str
+    part: Optional[PartResponse] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrderResponse(BaseModel):
+    id: int
+    buyer_id: int
+    seller_id: Optional[int]
+    status: str
+    total_uzs: float
+    delivery_address: Optional[str]
+    notes: Optional[str]
+    created_at: datetime
+    updated_at: Optional[datetime]
+    items: List[OrderItemResponse] = []
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrderStatusUpdate(BaseModel):
+    status: str = Field(..., pattern=r"^(pending|confirmed|shipped|delivered|cancelled)$")
+
+
+class MessageCreate(BaseModel):
+    order_id: int = Field(..., ge=1)
+    body: str = Field(..., min_length=1, max_length=2000)
+
+    @field_validator("body", mode="before")
+    @classmethod
+    def clean_body(cls, v: str) -> str:
+        return _clean_html(_sanitize(v, 2000)) or ""
+
+
+class MessageResponse(BaseModel):
+    id: int
+    order_id: int
+    sender_id: int
+    sender_name: str
+    body: str
+    is_read: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PaymentCreate(BaseModel):
+    order_id: int = Field(..., ge=1)
+    provider: str = Field(..., pattern=r"^(payme|click|uzum|cash_on_delivery)$")
+
+
+class PaymentResponse(BaseModel):
+    id: int
+    order_id: int
+    user_id: int
+    provider: str
+    amount_uzs: float
+    status: str
+    provider_transaction_id: Optional[str]
+    payment_url: Optional[str]
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)

@@ -12,22 +12,55 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+import uuid
+
+from app.core.auth import (
+    create_access_token,
+    get_current_active_user,
+    get_current_user,
+    get_password_hash,
+    verify_password,
+)
 from app.core.config import settings
 from app.core.security import escape_like, sanitize_q
 from app.db import get_db
-from app.models import Brand, Category, Model, Part, Seller, ServiceCenter
+from app.models import (
+    Brand,
+    Category,
+    Message,
+    Model,
+    Order,
+    OrderItem,
+    Part,
+    Payment,
+    Seller,
+    ServiceCenter,
+    User,
+)
+from app.payments.providers import get_payment_url
 from app.schemas import (
     BrandResponse,
     CategoryStat,
     CityStat,
+    MessageCreate,
+    MessageResponse,
     ModelResponse,
+    OrderCreate,
+    OrderResponse,
+    OrderStatusUpdate,
     PartCreate,
     PartFilter,
     PartResponse,
+    PaymentCreate,
+    PaymentResponse,
     PriceBucket,
     SellerResponse,
     ServiceCenterResponse,
     StatsSummary,
+    TokenResponse,
+    UserLogin,
+    UserRegister,
+    UserResponse,
     VinDecodeResponse,
 )
 
@@ -359,3 +392,283 @@ def sitemap_content(db: Session) -> str:
         add(f"{settings.site_url}/#listings?category={cat}", "0.7", "weekly")
 
     return ET.tostring(root, encoding="unicode")
+
+
+# ---------------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------------
+
+
+@api_router.post("/auth/register", response_model=TokenResponse, status_code=201)
+def register(data: UserRegister, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == data.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Bu email allaqachon ro'yxatdan o'tgan")
+    if data.phone:
+        existing_phone = db.query(User).filter(User.phone == data.phone).first()
+        if existing_phone:
+            raise HTTPException(status_code=400, detail="Bu telefon raqam allaqachon ishlatilgan")
+    user = User(
+        email=data.email,
+        phone=data.phone,
+        full_name=data.full_name,
+        hashed_password=get_password_hash(data.password),
+        role=data.role,
+        city=data.city,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    access_token = create_access_token({"sub": str(user.id), "role": user.role})
+    return TokenResponse(
+        access_token=access_token,
+        expires_in=settings.access_token_expire_minutes * 60,
+        user=UserResponse.model_validate(user),
+    )
+
+
+@api_router.post("/auth/login", response_model=TokenResponse)
+def login(data: UserLogin, db: Session = Depends(get_db)):
+    email = data.email.strip().lower()
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not verify_password(data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Email yoki parol noto'g'ri")
+    access_token = create_access_token({"sub": str(user.id), "role": user.role})
+    return TokenResponse(
+        access_token=access_token,
+        expires_in=settings.access_token_expire_minutes * 60,
+        user=UserResponse.model_validate(user),
+    )
+
+
+@api_router.get("/auth/me", response_model=UserResponse)
+def me(current_user: User = Depends(get_current_active_user)):
+    return UserResponse.model_validate(current_user)
+
+
+# ---------------------------------------------------------------------------
+# Orders
+# ---------------------------------------------------------------------------
+
+
+_ORDER_TRANSITIONS = {
+    "pending": {"confirmed", "cancelled"},
+    "confirmed": {"shipped", "cancelled"},
+    "shipped": {"delivered", "cancelled"},
+    "delivered": set(),
+    "cancelled": set(),
+}
+
+
+@api_router.post("/orders", response_model=OrderResponse, status_code=201)
+def create_order(
+    data: OrderCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    if not data.items:
+        raise HTTPException(status_code=400, detail="Buyurtma kamida bitta mahsulotni o'z ichiga olishi kerak")
+
+    order = Order(
+        buyer_id=current_user.id,
+        seller_id=data.seller_id,
+        status="pending",
+        total_uzs=0.0,
+        delivery_address=data.delivery_address,
+        notes=data.notes,
+    )
+    db.add(order)
+    db.flush()
+
+    total = 0.0
+    for item in data.items:
+        part = db.query(Part).filter(Part.id == item.part_id, Part.is_active == 1).first()
+        if not part:
+            raise HTTPException(status_code=400, detail=f"Qismlar topilmadi: ID {item.part_id}")
+        line_total = part.price_uzs * item.quantity
+        total += line_total
+        db.add(
+            OrderItem(
+                order_id=order.id,
+                part_id=part.id,
+                quantity=item.quantity,
+                unit_price_uzs=part.price_uzs,
+                status="pending",
+            )
+        )
+
+    order.total_uzs = total
+    db.commit()
+    db.refresh(order)
+    return OrderResponse.model_validate(order)
+
+
+@api_router.get("/orders", response_model=List[OrderResponse])
+def list_orders(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Order)
+    if current_user.role != "admin":
+        query = query.filter(Order.buyer_id == current_user.id)
+    return query.order_by(Order.created_at.desc()).all()
+
+
+@api_router.get("/orders/{order_id}", response_model=OrderResponse)
+def get_order(
+    order_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    order = db.query(Order).get(order_id)
+    if not order or (order.buyer_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
+    return OrderResponse.model_validate(order)
+
+
+@api_router.patch("/orders/{order_id}/status", response_model=OrderResponse)
+def update_order_status(
+    order_id: int,
+    payload: OrderStatusUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    order = db.query(Order).get(order_id)
+    if not order or (order.buyer_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
+
+    allowed = _ORDER_TRANSITIONS.get(order.status, set())
+    if payload.status not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{order.status}' holatidan '{payload.status}' holatiga o'tish mumkin emas",
+        )
+
+    # Buyers can only cancel their own orders unless they are admins.
+    if current_user.role != "admin" and payload.status != "cancelled":
+        raise HTTPException(status_code=403, detail="Faqat admin buyurtma holatini o'zgartirishi mumkin")
+
+    order.status = payload.status
+    db.commit()
+    db.refresh(order)
+    return OrderResponse.model_validate(order)
+
+
+# ---------------------------------------------------------------------------
+# Messages
+# ---------------------------------------------------------------------------
+
+
+def _message_response(msg: Message) -> MessageResponse:
+    return MessageResponse(
+        id=msg.id,
+        order_id=msg.order_id,
+        sender_id=msg.sender_id,
+        sender_name=msg.sender.full_name if msg.sender else "Noma'lum",
+        body=msg.body,
+        is_read=msg.is_read,
+        created_at=msg.created_at,
+    )
+
+
+@api_router.post("/messages", response_model=MessageResponse, status_code=201)
+def create_message(
+    data: MessageCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    order = db.query(Order).get(data.order_id)
+    if not order or (order.buyer_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
+    msg = Message(order_id=order.id, sender_id=current_user.id, body=data.body)
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return _message_response(msg)
+
+
+@api_router.get("/messages/{order_id}", response_model=List[MessageResponse])
+def list_messages(
+    order_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    order = db.query(Order).get(order_id)
+    if not order or (order.buyer_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
+    messages = db.query(Message).filter(Message.order_id == order_id).order_by(Message.created_at).all()
+    return [_message_response(m) for m in messages]
+
+
+# ---------------------------------------------------------------------------
+# Payments
+# ---------------------------------------------------------------------------
+
+
+@api_router.post("/payments", response_model=PaymentResponse, status_code=201)
+def create_payment(
+    data: PaymentCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    order = db.query(Order).get(data.order_id)
+    if not order or (order.buyer_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=404, detail="Buyurtma topilmadi")
+    if data.provider not in {"payme", "click", "uzum", "cash_on_delivery"}:
+        raise HTTPException(status_code=400, detail="Noto'g'ri to'lov turi")
+
+    existing = (
+        db.query(Payment)
+        .filter(Payment.order_id == order.id, Payment.provider == data.provider, Payment.status == "pending")
+        .first()
+    )
+    if existing:
+        return PaymentResponse.model_validate(existing)
+
+    payment_url = get_payment_url(data.provider, order.id, order.total_uzs) if data.provider != "cash_on_delivery" else ""
+    transaction_id = f"{data.provider}-{uuid.uuid4().hex[:12]}"
+    payment = Payment(
+        order_id=order.id,
+        user_id=current_user.id,
+        provider=data.provider,
+        amount_uzs=order.total_uzs,
+        status="pending",
+        provider_transaction_id=transaction_id,
+        payment_url=payment_url,
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return PaymentResponse.model_validate(payment)
+
+
+@api_router.get("/payments/{payment_id}", response_model=PaymentResponse)
+def get_payment(
+    payment_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    payment = db.query(Payment).get(payment_id)
+    if not payment or (payment.user_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=404, detail="To'lov topilmadi")
+    return PaymentResponse.model_validate(payment)
+
+
+@api_router.post("/payments/{payment_id}/confirm", response_model=PaymentResponse)
+def confirm_payment(
+    payment_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    payment = db.query(Payment).get(payment_id)
+    if not payment or (payment.user_id != current_user.id and current_user.role != "admin"):
+        raise HTTPException(status_code=404, detail="To'lov topilmadi")
+    if payment.status != "pending":
+        raise HTTPException(status_code=400, detail="To'lov allaqachon yakunlangan")
+
+    payment.status = "paid"
+    if payment.order and payment.order.status == "pending":
+        payment.order.status = "confirmed"
+    db.commit()
+    db.refresh(payment)
+    return PaymentResponse.model_validate(payment)

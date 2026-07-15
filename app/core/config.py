@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -18,6 +19,16 @@ class Settings(BaseSettings):
     site_url: str = "https://uzautoparts.uz"
     rate_limit: int = 120  # requests per window
     rate_window: int = 60  # seconds
+    secret_key: str = "change-me-in-production-please-32chars"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+
+    # Payment gateway placeholders (set real credentials in production)
+    payme_merchant_id: Optional[str] = None
+    click_service_id: Optional[str] = None
+    click_merchant_id: Optional[str] = None
+    uzum_service_id: Optional[str] = None
+    payment_return_url: str = "https://uzautoparts.uz/payment/success"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

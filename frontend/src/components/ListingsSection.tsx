@@ -21,7 +21,7 @@ const initialFilters: Filters = {
   city: '',
 };
 
-export function ListingsSection({ heroQuery }: { heroQuery?: string }) {
+export function ListingsSection({ heroQuery, onAuthRequired }: { heroQuery?: string; onAuthRequired?: () => void }) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(false);
@@ -122,7 +122,7 @@ export function ListingsSection({ heroQuery }: { heroQuery?: string }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 stagger">
         {parts.map((item) => (
-          <PartCard key={item.id} item={item} />
+          <PartCard key={item.id} item={item} onAuthRequired={onAuthRequired} />
         ))}
       </div>
 

@@ -23,6 +23,7 @@ const BRANDS = [
 ];
 
 export default function App() {
+  const [authOpen, setAuthOpen] = useState(false);
   const [stats, setStats] = useState<StatsSummary | null>(null);
   const [cityStats, setCityStats] = useState<CityStat[]>([]);
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
@@ -47,7 +48,7 @@ export default function App() {
       </div>
       <div className="noise" />
 
-      <Header />
+      <Header authOpen={authOpen} setAuthOpen={setAuthOpen} />
 
       <main id="top" className="container-main relative z-10">
         <Hero onSearch={setHeroQuery} />
@@ -59,7 +60,7 @@ export default function App() {
           categoryStats={categoryStats}
           priceBuckets={priceBuckets}
         />
-        <ListingsSection heroQuery={heroQuery} />
+        <ListingsSection heroQuery={heroQuery} onAuthRequired={() => setAuthOpen(true)} />
         <GlobeSection cities={cityStats} />
         <MapSection cities={cityStats} />
         <SellersSection />
