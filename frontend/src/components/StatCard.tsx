@@ -1,43 +1,36 @@
+import type { ReactNode } from 'react';
 import { useRef } from 'react';
-import { useTilt } from '../hooks/useTilt';
 import { useSpotlight } from '../hooks/useSpotlight';
-import { useCountUp } from '../hooks/useCountUp';
 
 export function StatCard({
-  label,
+  icon,
   value,
-  suffix,
-  icon: Icon,
-  suffixLabel,
+  label,
+  accent = false,
 }: {
+  icon: ReactNode;
+  value: string;
   label: string;
-  value: number;
-  suffix?: string;
-  icon: React.ElementType;
-  suffixLabel?: string;
+  accent?: boolean;
 }) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const tilt = useTilt(cardRef);
-  const spot = useSpotlight(cardRef);
-  const count = useCountUp(value);
+  const ref = useRef<HTMLDivElement>(null);
+  const spot = useSpotlight(ref);
 
   return (
     <div
-      ref={cardRef}
-      className="glass tilt-card spotlight rounded-2xl p-5 flex flex-col gap-2 relative"
-      {...tilt}
+      ref={ref}
       {...spot}
+      className={`spotlight card p-6 flex flex-col gap-3 ${accent ? 'card-gradient' : ''}`}
     >
-      <div className="flex items-center gap-3 text-slate-500">
-        <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-400 to-violet-500 text-white">
-          <Icon size={18} />
-        </div>
-        <span className="text-sm font-semibold uppercase tracking-wide">{label}</span>
+      <div
+        className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+          accent ? 'bg-white/20 text-white' : 'bg-[var(--primary-50)] text-[var(--primary)]'
+        }`}
+      >
+        {icon}
       </div>
-      <div className="text-3xl font-extrabold text-gradient leading-tight">
-        {new Intl.NumberFormat('ru-RU').format(count)}{suffix}
-      </div>
-      {suffixLabel && <div className="text-xs text-slate-500 font-medium">{suffixLabel}</div>}
+      <div className={`text-4xl font-black ${accent ? 'text-white' : 'text-[var(--foreground)]'}`}>{value}</div>
+      <div className={`text-sm font-bold ${accent ? 'text-white/80' : 'text-[var(--foreground)]/60'}`}>{label}</div>
     </div>
   );
 }
